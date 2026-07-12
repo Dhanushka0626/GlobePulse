@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="GlobePulse - A modern premium news platform for tracking global developments, tech breakthroughs, science discoveries, and creative culture.">
+  <title>GlobePulse | Modern Daily News Platform</title>
+  
+  <!-- Font Awesome for Premium Iconography -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Main Stylesheet -->
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <!-- Reading Progress Bar (Visible inside article reader) -->
+  <div id="reading-progress" class="reading-progress-bar"></div>
+
+  <!-- Main Navbar Header -->
+  <header class="navbar glass-panel">
+    <div class="container nav-container">
+      <!-- Dynamic Brand Logo -->
+      <a href="#/feed" class="logo" id="nav-logo">
+        <i class="fa-solid fa-earth-americas"></i>
+        <span>GlobePulse</span>
+      </a>
+
+      <!-- Main Navigation Menu Links -->
+      <nav>
+        <ul class="nav-links">
+          <li>
+            <a href="#/feed" class="nav-btn active" id="nav-feed">
+              <i class="fa-solid fa-newspaper"></i> <span>Feed</span>
+            </a>
+          </li>
+          <li>
+            <a href="#/dashboard" class="nav-btn" id="nav-dashboard">
+              <i class="fa-solid fa-chart-line"></i> <span>Creator Studio</span>
+            </a>
+          </li>
+          <li>
+            <a href="#/create" class="nav-btn" id="nav-create">
+              <i class="fa-solid fa-pen-to-square"></i> <span>Write Post</span>
+            </a>
+          </li>
+        </ul>
+      </nav>
+
+      <!-- Action Buttons -->
+      <div class="nav-actions">
+        <!-- Live Instant Search -->
+        <div class="search-box">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input type="text" id="global-search" placeholder="Search news topics...">
+        </div>
+
+        <!-- Light/Dark Mode Switcher -->
+        <button class="action-icon-btn" id="theme-toggle-btn" title="Toggle Theme" aria-label="Toggle Theme">
+          <i class="fa-solid fa-moon" id="theme-icon"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Content Containers -->
+  <main class="container" style="margin-top: 32px;">
+
+    <!-- VIEW 1: HOME NEWS FEED -->
+    <section id="feed-view" class="view-section active-view">
+      <!-- Top Featured / Breaking Story Hero Banner -->
+      <div id="featured-post" class="featured-section">
+        <!-- Dynamically injected featured story card -->
+      </div>
+
+      <!-- Categories Navigation Pill Slider -->
+      <div class="categories-bar">
+        <ul class="categories-list" id="categories-container">
+          <!-- Dynamically injected category buttons -->
+        </ul>
+      </div>
+
+      <!-- Main Columns Grid Layout -->
+      <div class="main-feed-layout">
+        <!-- Left Column: Articles Cards Grid -->
+        <div class="articles-grid" id="articles-container">
+          <!-- Dynamically injected article cards -->
+        </div>
+
+        <!-- Right Column: Interactive Widgets Sidebar -->
+        <aside class="sidebar">
+          <!-- Widget 1: Trending News Stories -->
+          <div class="sidebar-widget glass-panel">
+            <h5 class="widget-title">Trending</h5>
+            <div class="trending-list" id="trending-container">
+              <!-- Dynamically injected trending items -->
+            </div>
+          </div>
+
+          <!-- Widget 2: Weather Info (Mocked Localized Widget) -->
+          <div class="sidebar-widget glass-panel weather-panel">
+            <div class="weather-header">
+              <span>Local Weather</span>
+              <span id="weather-location" style="color: var(--text-secondary);">New York, US</span>
+            </div>
+            <div class="weather-temp-box">
+              <i class="fa-solid fa-cloud-sun weather-icon" id="weather-icon"></i>
+              <span class="weather-temp" id="weather-temp">24°C</span>
+            </div>
+            <div class="weather-desc" id="weather-desc">Partly Cloudy • Humidity 45%</div>
+          </div>
+
+          <!-- Widget 3: Newsletter Pulse Signup -->
+          <div class="sidebar-widget glass-panel">
+            <h5 class="widget-title">Newsletter</h5>
+            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 16px;">
+              Get daily global updates directly in your inbox.
+            </p>
+            <form class="newsletter-form" id="newsletter-form">
+              <div class="form-input-container">
+                <i class="fa-solid fa-envelope"></i>
+                <input type="email" id="newsletter-email" placeholder="Your email address" required>
+              </div>
+              <button type="submit" class="submit-btn">
+                <span>Subscribe</span>
+                <i class="fa-solid fa-paper-plane"></i>
+              </button>
+            </form>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- VIEW 2: FULL ARTICLE READ MODE -->
+    <section id="article-view" class="view-section">
+      <div class="article-reader-container glass-panel" id="article-reader-content">
+        <!-- Dynamically injected full article page -->
+      </div>
+    </section>
+
+    <!-- VIEW 3: NEWS PUBLISHING PORTAL / EDITOR -->
+    <section id="editor-view" class="view-section">
+      <div class="editor-container glass-panel">
+        <h2 class="editor-title" id="editor-page-title">Publish a News Story</h2>
+        <p class="editor-subtitle" id="editor-page-subtitle">Draft and upload global events to the public news feed.</p>
+        
+        <form id="news-editor-form">
+          <input type="hidden" id="edit-article-id" value="">
+          
+          <div class="form-grid">
+            <!-- Article Title -->
+            <div class="form-field span-2">
+              <label class="form-label" for="article-input-title">Headline / Title</label>
+              <input type="text" id="article-input-title" class="form-input" placeholder="e.g. Researchers Create Biodegradable Plastics from Marine Algae" required>
+            </div>
+
+            <!-- Category -->
+            <div class="form-field">
+              <label class="form-label" for="article-input-category">Category</label>
+              <select id="article-input-category" class="form-input" style="cursor: pointer;" required>
+                <option value="World">World</option>
+                <option value="Tech">Tech</option>
+                <option value="Science">Science</option>
+                <option value="Culture">Culture</option>
+                <option value="Business">Business</option>
+                <option value="Health">Health</option>
+              </select>
+            </div>
+
+            <!-- Read Time Estimate -->
+            <div class="form-field">
+              <label class="form-label" for="article-input-time">Read Time Estimate</label>
+              <input type="text" id="article-input-time" class="form-input" placeholder="e.g. 5 min read" required>
+            </div>
+
+            <!-- Summary / Subtitle -->
+            <div class="form-field span-2">
+              <label class="form-label" for="article-input-summary">Excerpt / Summary</label>
+              <input type="text" id="article-input-summary" class="form-input" placeholder="A single-sentence summary of the story's key outcome." required>
+            </div>
+
+            <!-- Image Cover Selection -->
+            <div class="form-field span-2">
+              <label class="form-label">Cover Image Selection</label>
+              <div class="preset-images-grid" id="preset-image-selector">
+                <div class="preset-img-option selected" data-url="https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1200&q=80">
+                  <img src="https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=150&h=100&q=80" alt="Tech / Energy">
+                </div>
+                <div class="preset-img-option" data-url="https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=1200&q=80">
+                  <img src="https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=150&h=100&q=80" alt="Deep Sea / Nature">
+                </div>
+                <div class="preset-img-option" data-url="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80">
+                  <img src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=150&h=100&q=80" alt="AI / Culture">
+                </div>
+                <div class="preset-img-option" data-url="https://images.unsplash.com/photo-1507668077129-56e32842fceb?auto=format&fit=crop&w=1200&q=80">
+                  <img src="https://images.unsplash.com/photo-1507668077129-56e32842fceb?auto=format&fit=crop&w=150&h=100&q=80" alt="Business / Growth">
+                </div>
+              </div>
+              <input type="url" id="article-input-image" class="form-input" style="margin-top: 12px;" placeholder="Or paste any custom cover image URL here...">
+            </div>
+
+            <!-- Tags -->
+            <div class="form-field span-2">
+              <label class="form-label" for="article-input-tags">Search Tags (Comma-separated)</label>
+              <input type="text" id="article-input-tags" class="form-input" placeholder="e.g. Environment, Marine Life, Biology, GreenTech">
+            </div>
+
+            <!-- Content Area -->
+            <div class="form-field span-2">
+              <label class="form-label" for="article-input-content">Article Content (HTML allowed for structure)</label>
+              <textarea id="article-input-content" class="form-input rich-textarea" placeholder="Start typing the full news report. Use standard HTML tags like <h3>, <p>, <ul>, <li> or <blockquote class='accent-quote'> for styling dividers..." required></textarea>
+            </div>
+          </div>
+
+          <!-- Submit Controls -->
+          <div class="editor-actions">
+            <button type="button" class="outline-btn" id="editor-cancel-btn">Cancel</button>
+            <button type="submit" class="submit-btn" id="editor-submit-btn">
+              <span>Publish Article</span>
+              <i class="fa-solid fa-cloud-arrow-up"></i>
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- VIEW 4: CREATOR DASHBOARD / STUDIO -->
+    <section id="dashboard-view" class="view-section">
+      <div class="studio-container">
+        <h2 class="studio-title">Creator Studio</h2>
+        <p class="studio-subtitle">Track news engagements, manage published reports, and analyze global impressions.</p>
+
+        <!-- Stats Overview Cards Grid -->
+        <div class="stats-grid">
+          <div class="stat-card glass-panel">
+            <div class="stat-icon blue">
+              <i class="fa-solid fa-file-invoice"></i>
+            </div>
+            <div class="stat-details">
+              <h4 id="stat-articles-count">0</h4>
+              <span>Total Stories</span>
+            </div>
+          </div>
+          <div class="stat-card glass-panel">
+            <div class="stat-icon purple">
+              <i class="fa-solid fa-eye"></i>
+            </div>
+            <div class="stat-details">
+              <h4 id="stat-views-count">0</h4>
+              <span>Total Views</span>
+            </div>
+          </div>
+          <div class="stat-card glass-panel">
+            <div class="stat-icon teal">
+              <i class="fa-solid fa-clock"></i>
+            </div>
+            <div class="stat-details">
+              <h4 id="stat-read-time">0m</h4>
+              <span>Avg Read Time</span>
+            </div>
+          </div>
+          <div class="stat-card glass-panel">
+            <div class="stat-icon orange">
+              <i class="fa-solid fa-comments"></i>
+            </div>
+            <div class="stat-details">
+              <h4 id="stat-comments-count">0</h4>
+              <span>User Comments</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Charts and Bookmarks Row -->
+        <div class="studio-charts-row">
+          <!-- Chart Panel -->
+          <div class="chart-panel glass-panel">
+            <h5 class="widget-title">Engagement Views By Category</h5>
+            <div class="chart-container" id="chart-bars-container">
+              <!-- Dynamically injected SVG/CSS chart bars -->
+            </div>
+          </div>
+
+          <!-- Bookmarked Articles Panel -->
+          <div class="bookmarks-panel glass-panel">
+            <h5 class="widget-title">Bookmarked Readings</h5>
+            <div class="bookmarks-list" id="bookmarks-container">
+              <!-- Dynamically injected bookmarks -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Manage Articles Table Panel -->
+        <div class="manage-panel glass-panel">
+          <h5 class="widget-title">Manage Published Articles</h5>
+          <div class="table-responsive">
+            <table class="studio-table">
+              <thead>
+                <tr>
+                  <th>Article Detail</th>
+                  <th>Category</th>
+                  <th>Published Date</th>
+                  <th>Views</th>
+                  <th>Likes</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="manage-table-body">
+                <!-- Dynamically injected table rows -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Global Footer -->
+  <footer class="footer">
+    <div class="container footer-content">
+      <div class="footer-logo">
+        <i class="fa-solid fa-earth-americas"></i> GlobePulse
+      </div>
+      <div class="footer-credits">
+        &copy; 2026 GlobePulse Media Group. All rights reserved.
+      </div>
+      <ul class="footer-links">
+        <li><a href="#/feed">Feed</a></li>
+        <li><a href="#/dashboard">Studio</a></li>
+        <li><a href="#/create">Write Post</a></li>
+      </ul>
+    </div>
+  </footer>
+
+  <!-- Core Database script -->
+  <script src="js/data.js"></script>
+  
+  <!-- Core Logic script -->
+  <script src="js/app.js"></script>
+</body>
+</html>
