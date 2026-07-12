@@ -16,14 +16,65 @@ const state = {
 
 // Initial setup to load data
 function initStorage() {
-  // Load Articles
-  const localArticles = localStorage.getItem('globepulse_articles');
-  if (localArticles) {
-    state.articles = JSON.parse(localArticles);
-  } else {
-    state.articles = [...DEFAULT_ARTICLES];
-    saveArticlesToStorage();
+  // 1. Load locally created or edited articles
+  let localArticles = [];
+  const localArticlesRaw = localStorage.getItem('globepulse_local_articles');
+  if (localArticlesRaw) {
+    localArticles = JSON.parse(localArticlesRaw);
   }
+
+  // 2. Load deleted static article IDs
+  let deletedStatic = [];
+  const deletedStaticRaw = localStorage.getItem('globepulse_deleted_articles');
+  if (deletedStaticRaw) {
+    deletedStatic = JSON.parse(deletedStaticRaw);
+  }
+
+  // 3. Filter static articles from data.js
+  const activeStatic = DEFAULT_ARTICLES.filter(a => !deletedStatic.includes(a.id));
+
+  // 4. Combine: local articles (taking precedence) and static articles
+  const combined = [...localArticles, ...activeStatic];
+  const uniqueArticles = [];
+  const seenIds = new Set();
+
+  for (const art of combined) {
+    if (!seenIds.has(art.id)) {
+      seenIds.add(art.id);
+
+      // Deep copy to prevent mutating memory reference of DEFAULT_ARTICLES directly
+      const articleCopy = JSON.parse(JSON.stringify(art));
+
+      // Merge local views count
+      const localViews = parseInt(localStorage.getItem(`globepulse_views_${articleCopy.id}`)) || 0;
+      articleCopy.views += localViews;
+
+      // Merge local likes count
+      const liked = localStorage.getItem(`globepulse_liked_${articleCopy.id}`);
+      if (liked) {
+        const likeTracked = localStorage.getItem(`globepulse_like_tracked_${articleCopy.id}`);
+        if (!likeTracked) {
+          articleCopy.likes += 1;
+          localStorage.setItem(`globepulse_like_tracked_${articleCopy.id}`, 'true');
+        }
+      }
+
+      // Merge and filter comments (local comments + static comments - deleted comments)
+      const localCommentsRaw = localStorage.getItem(`globepulse_comments_${articleCopy.id}`);
+      let localComments = [];
+      if (localCommentsRaw) {
+        localComments = JSON.parse(localCommentsRaw);
+      }
+      
+      const deletedComments = JSON.parse(localStorage.getItem(`globepulse_deleted_comments_${articleCopy.id}`) || '[]');
+      const allComments = [...(articleCopy.comments || []), ...localComments];
+      articleCopy.comments = allComments.filter(c => !deletedComments.includes(c.id));
+
+      uniqueArticles.push(articleCopy);
+    }
+  }
+  
+  state.articles = uniqueArticles;
 
   // Load Bookmarks
   const localBookmarks = localStorage.getItem('globepulse_bookmarks');
@@ -49,8 +100,8 @@ function initStorage() {
   }
 }
 
-function saveArticlesToStorage() {
-  localStorage.setItem('globepulse_articles', JSON.stringify(state.articles));
+function saveLocalArticlesToStorage(localArticles) {
+  localStorage.setItem('globepulse_local_articles', JSON.stringify(localArticles));
 }
 
 function saveBookmarksToStorage() {
@@ -348,7 +399,8 @@ function renderArticleDetail(articleId) {
 
   // Increment views locally once per navigation
   article.views += 1;
-  saveArticlesToStorage();
+  const currentViews = parseInt(localStorage.getItem(`globepulse_views_${article.id}`)) || 0;
+  localStorage.setItem(`globepulse_views_${article.id}`, currentViews + 1);
 
   const isBookmarked = state.bookmarks.includes(article.id) ? 'bookmarked' : '';
   const isLiked = localStorage.getItem(`globepulse_liked_${article.id}`) ? 'liked' : '';
@@ -599,23 +651,25 @@ function toggleReadAloud(article) {
 
 function toggleLikeArticle(article) {
   const likeKey = `globepulse_liked_${article.id}`;
+  const likeTrackedKey = `globepulse_like_tracked_${article.id}`;
   const likeBtn = document.getElementById('article-like-btn');
   const countLabel = document.getElementById('likes-count-label');
   
   if (localStorage.getItem(likeKey)) {
     // Unlike
     localStorage.removeItem(likeKey);
+    localStorage.removeItem(likeTrackedKey);
     article.likes = Math.max(0, article.likes - 1);
     likeBtn.classList.remove('liked');
   } else {
     // Like
     localStorage.setItem(likeKey, 'true');
+    localStorage.setItem(likeTrackedKey, 'true');
     article.likes += 1;
     likeBtn.classList.add('liked');
   }
   
   countLabel.innerText = article.likes;
-  saveArticlesToStorage();
 }
 
 function renderArticleComments(article) {
@@ -671,14 +725,17 @@ function addNewComment(article) {
     likes: 0
   };
 
+  // Push to local storage comments
+  const localCommentsRaw = localStorage.getItem(`globepulse_comments_${article.id}`);
+  const localComments = localCommentsRaw ? JSON.parse(localCommentsRaw) : [];
+  localComments.push(newComment);
+  localStorage.setItem(`globepulse_comments_${article.id}`, JSON.stringify(localComments));
+
   if (!article.comments) article.comments = [];
   article.comments.push(newComment);
 
   // Clear Textarea
   commentTextarea.value = '';
-
-  // Save to Storage
-  saveArticlesToStorage();
 
   // Re-render
   renderArticleComments(article);
@@ -705,7 +762,17 @@ window.likeComment = function(articleId, commentId, buttonEl) {
     localStorage.setItem(localKey, 'true');
   }
 
-  saveArticlesToStorage();
+  // Update comment inside local storage override if present
+  const localCommentsRaw = localStorage.getItem(`globepulse_comments_${articleId}`);
+  if (localCommentsRaw) {
+    const localComments = JSON.parse(localCommentsRaw);
+    const localComment = localComments.find(c => c.id === commentId);
+    if (localComment) {
+      localComment.likes = comment.likes;
+      localStorage.setItem(`globepulse_comments_${articleId}`, JSON.stringify(localComments));
+    }
+  }
+
   buttonEl.innerHTML = `<i class="fa-regular fa-thumbs-up"></i> ${comment.likes}`;
 };
 
@@ -714,7 +781,22 @@ window.deleteComment = function(articleId, commentId) {
   if (!article) return;
 
   article.comments = article.comments.filter(c => c.id !== commentId);
-  saveArticlesToStorage();
+
+  // Remove from local storage comments if present
+  const localCommentsRaw = localStorage.getItem(`globepulse_comments_${articleId}`);
+  if (localCommentsRaw) {
+    let localComments = JSON.parse(localCommentsRaw);
+    localComments = localComments.filter(c => c.id !== commentId);
+    localStorage.setItem(`globepulse_comments_${articleId}`, JSON.stringify(localComments));
+  }
+
+  // Track deletion of static comment if it belongs to default set
+  const deletedCommentsKey = `globepulse_deleted_comments_${articleId}`;
+  const deletedComments = JSON.parse(localStorage.getItem(deletedCommentsKey) || '[]');
+  if (!deletedComments.includes(commentId)) {
+    deletedComments.push(commentId);
+    localStorage.setItem(deletedCommentsKey, JSON.stringify(deletedComments));
+  }
 
   // Re-render
   renderArticleComments(article);
@@ -832,7 +914,23 @@ function handleEditorFormSubmit(e) {
       article.tags = tags;
       article.content = content;
       
-      saveArticlesToStorage();
+      // Update local storage arrays
+      let localArticles = [];
+      const localArticlesRaw = localStorage.getItem('globepulse_local_articles');
+      if (localArticlesRaw) {
+        localArticles = JSON.parse(localArticlesRaw);
+      }
+
+      // Check if this article was already in the local articles list
+      const existingIndex = localArticles.findIndex(a => a.id === editId);
+      if (existingIndex > -1) {
+        localArticles[existingIndex] = article;
+      } else {
+        // Overwrite static by saving edited static article locally
+        localArticles.unshift(article);
+      }
+      saveLocalArticlesToStorage(localArticles);
+
       alert("Story updated successfully!");
       window.location.hash = `#/article/${article.id}`;
     }
@@ -859,8 +957,18 @@ function handleEditorFormSubmit(e) {
       comments: []
     };
 
+    // Save to local articles list
+    let localArticles = [];
+    const localArticlesRaw = localStorage.getItem('globepulse_local_articles');
+    if (localArticlesRaw) {
+      localArticles = JSON.parse(localArticlesRaw);
+    }
+    localArticles.unshift(newArticle);
+    saveLocalArticlesToStorage(localArticles);
+
+    // Update state
     state.articles.unshift(newArticle);
-    saveArticlesToStorage();
+
     alert("News story published successfully to the main feed!");
     window.location.hash = `#/article/${newArticle.id}`;
   }
@@ -1011,12 +1119,28 @@ function renderDashboardManageTable() {
 
 window.deleteArticle = function(articleId) {
   if (confirm("Are you sure you want to delete this article? This action cannot be undone.")) {
+    // 1. Remove from state.articles
     state.articles = state.articles.filter(a => a.id !== articleId);
+    
+    // 2. Remove from local articles if present
+    let localArticles = [];
+    const localArticlesRaw = localStorage.getItem('globepulse_local_articles');
+    if (localArticlesRaw) {
+      localArticles = JSON.parse(localArticlesRaw);
+    }
+    localArticles = localArticles.filter(a => a.id !== articleId);
+    saveLocalArticlesToStorage(localArticles);
+
+    // 3. Track deletion of static article
+    const deletedStaticRaw = localStorage.getItem('globepulse_deleted_articles');
+    let deletedStatic = deletedStaticRaw ? JSON.parse(deletedStaticRaw) : [];
+    if (!deletedStatic.includes(articleId)) {
+      deletedStatic.push(articleId);
+      localStorage.setItem('globepulse_deleted_articles', JSON.stringify(deletedStatic));
+    }
     
     // Remove from bookmarks if bookmarked
     state.bookmarks = state.bookmarks.filter(id => id !== articleId);
-    
-    saveArticlesToStorage();
     saveBookmarksToStorage();
     
     // Re-render
