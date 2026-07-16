@@ -14,67 +14,113 @@ const state = {
   speechInstance: null
 };
 
+// --- DATABASE / LOADER HELPER FUNCTIONS ---
+function showLoadingSpinner(show) {
+  const spinner = document.getElementById('loading-spinner');
+  if (spinner) {
+    spinner.style.display = show ? 'flex' : 'none';
+  }
+}
+
+function updateDbStatusBadge() {
+  const badge = document.getElementById('db-status-badge');
+  const text = document.getElementById('db-status-text');
+  if (!badge || !text) return;
+  
+  if (typeof isSupabaseActive !== 'undefined' && isSupabaseActive) {
+    badge.className = 'status-badge connected';
+    text.innerText = 'Database: Supabase Connected';
+  } else {
+    badge.className = 'status-badge fallback';
+    text.innerText = 'Database: Local Fallback';
+  }
+}
+
 // Initial setup to load data
-function initStorage() {
-  // 1. Load locally created or edited articles
-  let localArticles = [];
-  const localArticlesRaw = localStorage.getItem('globepulse_local_articles');
-  if (localArticlesRaw) {
-    localArticles = JSON.parse(localArticlesRaw);
-  }
-
-  // 2. Load deleted static article IDs
-  let deletedStatic = [];
-  const deletedStaticRaw = localStorage.getItem('globepulse_deleted_articles');
-  if (deletedStaticRaw) {
-    deletedStatic = JSON.parse(deletedStaticRaw);
-  }
-
-  // 3. Filter static articles from data.js
-  const activeStatic = DEFAULT_ARTICLES.filter(a => !deletedStatic.includes(a.id));
-
-  // 4. Combine: local articles (taking precedence) and static articles
-  const combined = [...localArticles, ...activeStatic];
-  const uniqueArticles = [];
-  const seenIds = new Set();
-
-  for (const art of combined) {
-    if (!seenIds.has(art.id)) {
-      seenIds.add(art.id);
-
-      // Deep copy to prevent mutating memory reference of DEFAULT_ARTICLES directly
-      const articleCopy = JSON.parse(JSON.stringify(art));
-
-      // Merge local views count
-      const localViews = parseInt(localStorage.getItem(`globepulse_views_${articleCopy.id}`)) || 0;
-      articleCopy.views += localViews;
-
-      // Merge local likes count
-      const liked = localStorage.getItem(`globepulse_liked_${articleCopy.id}`);
-      if (liked) {
-        const likeTracked = localStorage.getItem(`globepulse_like_tracked_${articleCopy.id}`);
-        if (!likeTracked) {
-          articleCopy.likes += 1;
-          localStorage.setItem(`globepulse_like_tracked_${articleCopy.id}`, 'true');
-        }
+async function initStorage() {
+  updateDbStatusBadge();
+  
+  let articlesLoaded = false;
+  
+  // Try loading from Supabase if active
+  if (typeof isSupabaseActive !== 'undefined' && isSupabaseActive) {
+    showLoadingSpinner(true);
+    try {
+      const supabaseArticles = await dbGetArticles();
+      if (supabaseArticles) {
+        state.articles = supabaseArticles;
+        articlesLoaded = true;
+        console.log("GlobePulse: Successfully loaded articles from Supabase.");
       }
-
-      // Merge and filter comments (local comments + static comments - deleted comments)
-      const localCommentsRaw = localStorage.getItem(`globepulse_comments_${articleCopy.id}`);
-      let localComments = [];
-      if (localCommentsRaw) {
-        localComments = JSON.parse(localCommentsRaw);
-      }
-      
-      const deletedComments = JSON.parse(localStorage.getItem(`globepulse_deleted_comments_${articleCopy.id}`) || '[]');
-      const allComments = [...(articleCopy.comments || []), ...localComments];
-      articleCopy.comments = allComments.filter(c => !deletedComments.includes(c.id));
-
-      uniqueArticles.push(articleCopy);
+    } catch (err) {
+      console.error("GlobePulse: Failed to load from Supabase, falling back to local database.", err);
+    } finally {
+      showLoadingSpinner(false);
     }
   }
   
-  state.articles = uniqueArticles;
+  // Local Fallback if Firebase is inactive or failed
+  if (!articlesLoaded) {
+    // 1. Load locally created or edited articles
+    let localArticles = [];
+    const localArticlesRaw = localStorage.getItem('globepulse_local_articles');
+    if (localArticlesRaw) {
+      localArticles = JSON.parse(localArticlesRaw);
+    }
+
+    // 2. Load deleted static article IDs
+    let deletedStatic = [];
+    const deletedStaticRaw = localStorage.getItem('globepulse_deleted_articles');
+    if (deletedStaticRaw) {
+      deletedStatic = JSON.parse(deletedStaticRaw);
+    }
+
+    // 3. Filter static articles from data.js
+    const activeStatic = DEFAULT_ARTICLES.filter(a => !deletedStatic.includes(a.id));
+
+    // 4. Combine: local articles (taking precedence) and static articles
+    const combined = [...localArticles, ...activeStatic];
+    const uniqueArticles = [];
+    const seenIds = new Set();
+
+    for (const art of combined) {
+      if (!seenIds.has(art.id)) {
+        seenIds.add(art.id);
+
+        // Deep copy to prevent mutating memory reference of DEFAULT_ARTICLES directly
+        const articleCopy = JSON.parse(JSON.stringify(art));
+
+        // Merge local views count
+        const localViews = parseInt(localStorage.getItem(`globepulse_views_${articleCopy.id}`)) || 0;
+        articleCopy.views += localViews;
+
+        // Merge local likes count
+        const liked = localStorage.getItem(`globepulse_liked_${articleCopy.id}`);
+        if (liked) {
+          const likeTracked = localStorage.getItem(`globepulse_like_tracked_${articleCopy.id}`);
+          if (!likeTracked) {
+            articleCopy.likes += 1;
+            localStorage.setItem(`globepulse_like_tracked_${articleCopy.id}`, 'true');
+          }
+        }
+
+        // Merge and filter comments (local comments + static comments - deleted comments)
+        const localCommentsRaw = localStorage.getItem(`globepulse_comments_${articleCopy.id}`);
+        let localComments = [];
+        if (localCommentsRaw) {
+          localComments = JSON.parse(localCommentsRaw);
+        }
+        
+        const deletedComments = JSON.parse(localStorage.getItem(`globepulse_deleted_comments_${articleCopy.id}`) || '[]');
+        const allComments = [...(articleCopy.comments || []), ...localComments];
+        articleCopy.comments = allComments.filter(c => !deletedComments.includes(c.id));
+
+        uniqueArticles.push(articleCopy);
+      }
+    }
+    
+    state.articles = uniqueArticles;
+  }
 
   // Load Bookmarks
   const localBookmarks = localStorage.getItem('globepulse_bookmarks');
@@ -402,6 +448,11 @@ function renderArticleDetail(articleId) {
   const currentViews = parseInt(localStorage.getItem(`globepulse_views_${article.id}`)) || 0;
   localStorage.setItem(`globepulse_views_${article.id}`, currentViews + 1);
 
+  // Sync to Supabase if active
+  if (typeof isSupabaseActive !== 'undefined' && isSupabaseActive) {
+    dbIncrementViews(article.id);
+  }
+
   const isBookmarked = state.bookmarks.includes(article.id) ? 'bookmarked' : '';
   const isLiked = localStorage.getItem(`globepulse_liked_${article.id}`) ? 'liked' : '';
   const commentsCount = article.comments ? article.comments.length : 0;
@@ -661,12 +712,22 @@ function toggleLikeArticle(article) {
     localStorage.removeItem(likeTrackedKey);
     article.likes = Math.max(0, article.likes - 1);
     likeBtn.classList.remove('liked');
+    
+    // Sync to Supabase if active
+    if (typeof isSupabaseActive !== 'undefined' && isSupabaseActive) {
+      dbIncrementLikes(article.id, -1);
+    }
   } else {
     // Like
     localStorage.setItem(likeKey, 'true');
     localStorage.setItem(likeTrackedKey, 'true');
     article.likes += 1;
     likeBtn.classList.add('liked');
+    
+    // Sync to Supabase if active
+    if (typeof isSupabaseActive !== 'undefined' && isSupabaseActive) {
+      dbIncrementLikes(article.id, 1);
+    }
   }
   
   countLabel.innerText = article.likes;
@@ -734,6 +795,11 @@ function addNewComment(article) {
   if (!article.comments) article.comments = [];
   article.comments.push(newComment);
 
+  // Sync to Supabase if active
+  if (typeof isSupabaseActive !== 'undefined' && isSupabaseActive) {
+    dbUpdateComments(article.id, article.comments);
+  }
+
   // Clear Textarea
   commentTextarea.value = '';
 
@@ -773,6 +839,11 @@ window.likeComment = function(articleId, commentId, buttonEl) {
     }
   }
 
+  // Sync to Supabase if active
+  if (typeof isSupabaseActive !== 'undefined' && isSupabaseActive) {
+    dbUpdateComments(article.id, article.comments);
+  }
+
   buttonEl.innerHTML = `<i class="fa-regular fa-thumbs-up"></i> ${comment.likes}`;
 };
 
@@ -796,6 +867,11 @@ window.deleteComment = function(articleId, commentId) {
   if (!deletedComments.includes(commentId)) {
     deletedComments.push(commentId);
     localStorage.setItem(deletedCommentsKey, JSON.stringify(deletedComments));
+  }
+
+  // Sync to Supabase if active
+  if (typeof isSupabaseActive !== 'undefined' && isSupabaseActive) {
+    dbUpdateComments(article.id, article.comments);
   }
 
   // Re-render
@@ -883,7 +959,7 @@ function setupEditorView(editId) {
   }
 }
 
-function handleEditorFormSubmit(e) {
+async function handleEditorFormSubmit(e) {
   e.preventDefault();
   
   const editId = document.getElementById('edit-article-id').value;
@@ -931,6 +1007,21 @@ function handleEditorFormSubmit(e) {
       }
       saveLocalArticlesToStorage(localArticles);
 
+      // Sync to Supabase if active
+      if (typeof isSupabaseActive !== 'undefined' && isSupabaseActive) {
+        showLoadingSpinner(true);
+        await dbUpdateArticle(editId, {
+          title,
+          category,
+          readTime,
+          summary,
+          coverImage,
+          tags,
+          content
+        });
+        showLoadingSpinner(false);
+      }
+
       alert("Story updated successfully!");
       window.location.hash = `#/article/${article.id}`;
     }
@@ -966,6 +1057,13 @@ function handleEditorFormSubmit(e) {
     localArticles.unshift(newArticle);
     saveLocalArticlesToStorage(localArticles);
 
+    // Sync to Supabase if active
+    if (typeof isSupabaseActive !== 'undefined' && isSupabaseActive) {
+      showLoadingSpinner(true);
+      await dbAddArticle(newArticle);
+      showLoadingSpinner(false);
+    }
+
     // Update state
     state.articles.unshift(newArticle);
 
@@ -976,6 +1074,7 @@ function handleEditorFormSubmit(e) {
 
 // --- DYNAMIC RENDERING: CREATOR DASHBOARD / STUDIO ---
 function renderDashboardView() {
+  updateDbStatusBadge();
   calculateAndRenderStats();
   renderSVGChart();
   renderDashboardBookmarks();
@@ -1117,7 +1216,7 @@ function renderDashboardManageTable() {
   }).join('');
 }
 
-window.deleteArticle = function(articleId) {
+window.deleteArticle = async function(articleId) {
   if (confirm("Are you sure you want to delete this article? This action cannot be undone.")) {
     // 1. Remove from state.articles
     state.articles = state.articles.filter(a => a.id !== articleId);
@@ -1142,6 +1241,13 @@ window.deleteArticle = function(articleId) {
     // Remove from bookmarks if bookmarked
     state.bookmarks = state.bookmarks.filter(id => id !== articleId);
     saveBookmarksToStorage();
+    
+    // Sync to Supabase if active
+    if (typeof isSupabaseActive !== 'undefined' && isSupabaseActive) {
+      showLoadingSpinner(true);
+      await dbDeleteArticle(articleId);
+      showLoadingSpinner(false);
+    }
     
     // Re-render
     renderDashboardView();
@@ -1230,9 +1336,9 @@ window.shareAlert = function(platform) {
 };
 
 // --- EVENT BINDINGS ON DOM CONTENT LOADED ---
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   // Init state data
-  initStorage();
+  await initStorage();
 
   // Handle SPA routing
   window.addEventListener('hashchange', handleRouting);
